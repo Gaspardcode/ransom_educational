@@ -4,14 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-colored = "2"
 rsa = "0.9.7"
 rand = "0.8.5"
-sendmail = "2.0"
-getopt = "1.1.7"
-reqwest = { version = "0.11", features = ["json"] }
-tokio = { version = "1", features = ["full"] }
-serde_json = "1.0.133"
+clap = "4.5.23"
+aes-gcm = "0.10.3"
 
 [profile.dev.package.num-bigint-dig]
 opt-level = 3
+[profile.dev]
+opt-level = "s"
+# removes debugging symbols 
+#lto = true

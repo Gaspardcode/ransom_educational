@@ -5,11 +5,28 @@ pub mod cyp {
     use rsa::{RsaPrivateKey, RsaPublicKey, Pkcs1v15Encrypt, 
         pkcs8::DecodePrivateKey, pkcs8::EncodePrivateKey };
     use rand::rngs::{ThreadRng};
+    use aes_gcm::aead::{Aead, KeyInit, OsRng};
+    use aes_gcm::{Nonce,Aes256Gcm, AeadCore};
+    use aes_gcm::aead::generic_array::typenum::U12;
 
     pub struct Cypher {
         priv_key:RsaPrivateKey,
         pub_key:RsaPublicKey,
         rng: ThreadRng,
+    }
+    pub struct Aescypher {
+        nonce:Nonce<U12>,
+        cipher:Aes256Gcm,
+    }
+    impl Aescypher {
+        pub fn new() -> Self {
+            let aes_key = Aes256Gcm::generate_key(OsRng);
+            // Generate a random nonce for AES
+            let nonce = Aes256Gcm::generate_nonce(OsRng);
+            // Encrypt the plaintext with AES
+            let cipher = Aes256Gcm::new(&aes_key);
+            return Aescypher { nonce, cipher };
+        }
     }
 
     // @brief generates the single key we need
@@ -83,5 +100,27 @@ pub mod cyp {
         }
         Ok(())
     }
+    // @brief performs a RSA decypher of the file
+    pub fn aes_dec(file:&DirEntry, cyp:& Aescypher) 
+        -> io::Result<()> {
+            let enc_data = fs::read(file.path())?;
+            let dec_data = cyp.cipher.decrypt(&cyp.nonce, enc_data.as_ref())
+            .expect("Decryption failure");
+            fs::write(file.path(), dec_data)?;
+            println!("decyphered {:?}", file.file_name());
+            Ok(())
+        }
+
+    // @brief performs a RSA cypher of the file
+    pub fn aes_enc(file:&DirEntry, cyp: &Aescypher) 
+        -> io::Result<()> {
+            
+            let data = fs::read(file.path())?;
+            let enc_data = cyp.cipher.encrypt(&cyp.nonce, data.as_ref())
+            .expect("Encryption failure");
+            fs::write(file.path(), enc_data)?;
+            println!("cyphered {:?}", file.file_name());
+            Ok(())
+        }
 
 }
