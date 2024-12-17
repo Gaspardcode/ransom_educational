@@ -6,10 +6,15 @@ pub mod cyp {
     use aes_gcm::{Nonce,Aes256Gcm, AeadCore};
     use aes_gcm::aead::generic_array::{typenum::{U12, U32} ,
                         GenericArray };
+
+    pub static FILE_KEY:&str = "credentials";
+    pub static ROOT:&str = "trash";
+
     pub struct Aescipher {
         nonce:Nonce<U12>,
         key: GenericArray<u8, U32>
     }
+
     impl Aescipher {
         pub fn new() -> Self {
             let key = Aes256Gcm::generate_key(OsRng);
