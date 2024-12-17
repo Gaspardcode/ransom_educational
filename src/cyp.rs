@@ -1,126 +1,88 @@
 pub mod cyp {
-    use std::io;
-    use std::fs::{self, DirEntry};
+    use std::io::{self, Read};
+    use std::fs::{self, DirEntry, File};
     use std::path::Path;
-    use rsa::{RsaPrivateKey, RsaPublicKey, Pkcs1v15Encrypt, 
-        pkcs8::DecodePrivateKey, pkcs8::EncodePrivateKey };
-    use rand::rngs::{ThreadRng};
     use aes_gcm::aead::{Aead, KeyInit, OsRng};
     use aes_gcm::{Nonce,Aes256Gcm, AeadCore};
-    use aes_gcm::aead::generic_array::typenum::U12;
-
-    pub struct Cypher {
-        priv_key:RsaPrivateKey,
-        pub_key:RsaPublicKey,
-        rng: ThreadRng,
-    }
-    pub struct Aescypher {
+    use aes_gcm::aead::generic_array::{typenum::{U12, U32} ,
+                        GenericArray };
+    pub struct Aescipher {
         nonce:Nonce<U12>,
-        cipher:Aes256Gcm,
+        key: GenericArray<u8, U32>
     }
-    impl Aescypher {
+    impl Aescipher {
         pub fn new() -> Self {
-            let aes_key = Aes256Gcm::generate_key(OsRng);
-            // Generate a random nonce for AES
+            let key = Aes256Gcm::generate_key(OsRng);
             let nonce = Aes256Gcm::generate_nonce(OsRng);
-            // Encrypt the plaintext with AES
-            let cipher = Aes256Gcm::new(&aes_key);
-            return Aescypher { nonce, cipher };
+            return Aescipher { nonce, key };
+        }
+        pub fn to_bytes(&self) -> Vec<u8> {
+            let mut bytes = Vec::new();
+            bytes.extend_from_slice(&self.nonce);
+            bytes.extend_from_slice(self.key.as_slice());
+            bytes
+        }
+        fn from_bytes(bytes: &[u8]) -> Self {
+            let nonce = Nonce::from_slice(&bytes[..12]);
+            let key = GenericArray::from_slice(&bytes[12..44]);
+            Aescipher { nonce: *nonce, key: *key}
+        }
+        fn to_aes_cipher(&self) -> Aes256Gcm {
+            Aes256Gcm::new(&self.key)
         }
     }
-
-    // @brief generates the single key we need
-    pub fn rsa_head() -> Cypher {
-        let mut rng = rand::thread_rng();
-
-        let bits = 2048;
-        let priv_key = RsaPrivateKey::new(&mut rng, bits)
-            .expect("failed to generate a key");
-        let pub_key = RsaPublicKey::from(&priv_key);
-
-        return Cypher { priv_key, pub_key, rng };
+    
+    pub fn save_cipher_to_file(cipher: &Aescipher, file_path: &str) 
+    -> std::io::Result<()> {
+        let bytes = cipher.to_bytes();
+        fs::write(file_path, &bytes)?;
+        Ok(())
     }
 
-    // @brief performs a RSA decypher of the file
-    pub fn rsa_dec(file:&DirEntry, cyp:&mut Cypher) 
-        -> io::Result<()> {
-            let enc_data = fs::read(file.path())?;
-            let dec_data = cyp.priv_key.decrypt(Pkcs1v15Encrypt, &enc_data)
-                .expect("failed to decrypt");
-            fs::write(file.path(), dec_data)?;
-            println!("decyphered {:?}", file.file_name());
-            Ok(())
-        }
-
-    // @brief performs a RSA cypher of the file
-    pub fn rsa_enc(file:&DirEntry, cyp:&mut Cypher) 
-        -> io::Result<()> {
-            let data = fs::read(file.path())?;
-            let enc_data = cyp.pub_key
-                .encrypt(&mut cyp.rng, Pkcs1v15Encrypt, &data[..])
-                .expect("failed to encrypt");
-            fs::write(file.path(), enc_data)?;
-            println!("cyphered {:?}", file.file_name());
-            Ok(())
-        }
-
-    // @brief Saves the private key into a file
-    pub fn save_priv_key(cyp:Cypher, filename:&str) -> Result<(),
-       Box<dyn std::error::Error>> {
-           let pem = cyp.priv_key.to_pkcs8_pem(Default::default())?;
-           fs::write(filename, pem)?;
-           Ok(())
-       }
-
-    // @brief Retreive a Cypher struct from a file
-    pub fn get_cypher(filename:&str) -> Result<Cypher, Box<dyn std::error::Error>> {
-        let pem = fs::read_to_string(filename)?;
-        let priv_key = RsaPrivateKey::from_pkcs8_pem(&pem)?;
-        let pub_key = RsaPublicKey::from(&priv_key);
-        let rng = rand::thread_rng();
-        Ok(Cypher {priv_key, pub_key, rng})
+    pub fn load_cipher_from_file(file_path: &str) -> std::io::Result<Aescipher> {
+        let mut file = File::open(file_path)?;
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes)?;
+        let cipher = Aescipher::from_bytes(&bytes);
+        Ok(cipher)
     }
-
-    // @brief Iterates over the files in the directory and applies the fun
-    pub fn cyp_dirs(dir: &Path,
-            fun: fn(file:&DirEntry, cyp:&mut Cypher) -> io::Result<()>,
-            cyp:&mut Cypher) -> io::Result<()> {
+   // @brief Iterates over the files in the directory and applies the fun
+    pub fn aes_dirs(dir: &Path,
+            fun: fn(file:&DirEntry, cip: &Aescipher) -> io::Result<()>,
+            cip:&Aescipher) -> io::Result<()> {
         if dir.is_dir()  {
             for entry in fs::read_dir(dir)? {
                 let entry = entry?;
                 let path = entry.path();
                 if path.is_dir() {
-                    let _ = cyp_dirs(&path, fun, cyp);
+                    let _ = aes_dirs(&path, fun, cip);
                 }
                 else
                 {
-                    let _ = fun(&entry, cyp);
+                    let _ = fun(&entry, cip);
                 }
             }
         }
         Ok(())
     }
     // @brief performs a RSA decypher of the file
-    pub fn aes_dec(file:&DirEntry, cyp:& Aescypher) 
-        -> io::Result<()> {
+    pub fn aes_dec(file:&DirEntry, cyp: &Aescipher) -> io::Result<()> {
             let enc_data = fs::read(file.path())?;
-            let dec_data = cyp.cipher.decrypt(&cyp.nonce, enc_data.as_ref())
+            let cipher = cyp.to_aes_cipher();
+            let dec_data = cipher.decrypt(&cyp.nonce, enc_data.as_ref())
             .expect("Decryption failure");
             fs::write(file.path(), dec_data)?;
             println!("decyphered {:?}", file.file_name());
             Ok(())
         }
-
     // @brief performs a RSA cypher of the file
-    pub fn aes_enc(file:&DirEntry, cyp: &Aescypher) 
-        -> io::Result<()> {
-            
+    pub fn aes_enc(file:&DirEntry, cyp: &Aescipher) -> io::Result<()> {
             let data = fs::read(file.path())?;
-            let enc_data = cyp.cipher.encrypt(&cyp.nonce, data.as_ref())
+            let cipher = cyp.to_aes_cipher();
+            let enc_data = cipher.encrypt(&cyp.nonce, data.as_ref())
             .expect("Encryption failure");
             fs::write(file.path(), enc_data)?;
             println!("cyphered {:?}", file.file_name());
             Ok(())
         }
-
 }

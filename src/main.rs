@@ -34,7 +34,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Validate encoding/decoding mutual exclusivity
     if enc && dec {
-        eprintln!("Error: Cannot specify both --decode and --encode at the same time.");
+       eprintln!("Error: Cannot specify both --decode and --encode at the same time.");
         std::process::exit(1);
     }
 
@@ -46,9 +46,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Execute encoding or decoding
     if enc {
-        let mut cyph = rsa_head();
-        let _ = cyp_dirs(Path::new(&root), rsa_enc, &mut cyph)?;
-        save_priv_key(cyph, "credentials")?;
+        let mut ciph = Aescipher::new();
+        let _ = aes_dirs(Path::new(&root), aes_enc, &mut ciph)?;
+        save_cipher_to_file(&ciph, "credentials")?;
         println!("{}", "\x1b[31m
     ____                                ____
    / __ \\____ __      ______  ___  ____/ / /
@@ -56,8 +56,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
  / ____/ /_/ /| |/ |/ / / / /  __/ /_/ /_/
 /_/    \\__,_/ |__/|__/_/ /_/\\___/\\__,_(_) \x1b[0m");
     } else if dec {
-        let mut cyph = get_cypher("credentials")?;
-        let _ = cyp_dirs(Path::new(&root), rsa_dec, &mut cyph)?;
+        let mut ciph = load_cipher_from_file("credentials")?;
+        let _ = aes_dirs(Path::new(&root), aes_dec, &mut ciph)?;
     } else {
         eprintln!("Error: Please specify either --encode or --decode.");
         std::process::exit(1);

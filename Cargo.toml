@@ -4,14 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rsa = "0.9.7"
-rand = "0.8.5"
 clap = "4.5.23"
 aes-gcm = "0.10.3"
 
-[profile.dev.package.num-bigint-dig]
-opt-level = 3
 [profile.dev]
-opt-level = "s"
+opt-level = 3
 # removes debugging symbols 
-#lto = true
+lto = true
