@@ -79,8 +79,23 @@ pub mod cyp {
     pub fn aes_enc(file:&DirEntry, cyp: &Aescipher) -> io::Result<()> {
             let data = fs::read(file.path())?;
             let cipher = cyp.to_aes_cipher();
+
             let enc_data = cipher.encrypt(&cyp.nonce, data.as_ref())
             .expect("Encryption failure");
+            
+            /*
+            let chunk_size = 1024; // Adjust the chunk size as needed
+            let chunks: Vec<&[u8]> = data.chunks(chunk_size).collect();
+            let enc_data: Vec<u8> = chunks.par_iter().map(|chunk| {
+                    let mut buffer:Vec<u8> = vec![0; 1024];
+                    let mut data_chunk = chunk.to_vec();
+                    cipher
+                    .encrypt_in_place(&cyp.nonce, &mut data_chunk, &mut buffer)
+                    .expect("Encryption failed");
+                    data_chunk
+                }).collect::<Vec<Vec<u8>>>().concat();
+            */
+
             fs::write(file.path(), enc_data)?;
             println!("cyphered {:?}", file.file_name());
             Ok(())
