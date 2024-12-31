@@ -1,4 +1,4 @@
-# A educational ransomware
+# Educational ransomware
 
 A minimalist and tricky program to raise awarness about ransomwares.
 
