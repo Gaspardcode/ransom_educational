@@ -15,6 +15,7 @@ pub mod app {
         pub link_clicked: bool,
         pub token:bool
     }
+    const URL:&str = "https://gaspardcode.github.io/tools/randuc/index.html";
 
     pub fn ui_builder() -> impl Widget<AppState> {
 
@@ -38,7 +39,7 @@ pub mod app {
             .on_click(|_, data: &mut AppState, _| {
                     data.link_clicked = true;
                     let _browser = thread::spawn(|| 
-                            webbrowser::open("https://gaspardcode.github.io")
+                            webbrowser::open(URL)
                             .is_ok());
                     });
         let text_input = TextBox::new()
